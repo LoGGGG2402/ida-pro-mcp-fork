@@ -7,6 +7,7 @@ import argparse
 import http.client
 from urllib.parse import urlparse
 from glob import glob
+import re
 
 from mcp.server.fastmcp import FastMCP
 
@@ -413,17 +414,23 @@ def install_mcp_servers(*, uninstall=False, quiet=False, env={}):
         print("No MCP servers installed. For unsupported MCP clients, use the following config:\n")
         print_mcp_config()
 
-def install_ida_plugin(*, uninstall: bool = False, quiet: bool = False):
-    if sys.platform == "win32":
-        ida_folder = os.path.join(os.getenv("APPDATA"), "Hex-Rays", "IDA Pro")
+def install_ida_plugin(*, uninstall: bool = False, path: str = "", public: bool = False, quiet: bool = False):
+    if path != "":
+        ida_folder = path
     else:
-        ida_folder = os.path.join(os.path.expanduser("~"), ".idapro")
-    free_licenses = glob(os.path.join(ida_folder, "idafree_*.hexlic"))
+        if sys.platform == "win32":
+            ida_folder = os.path.join(os.getenv("APPDATA"), "Hex-Rays", "IDA Pro")
+        else:
+            ida_folder = os.path.join(os.path.expanduser("~"), ".idapro")
+    
+    free_licenses = glob.glob(os.path.join(ida_folder, "idafree_*.hexlic"))
     if len(free_licenses) > 0:
         print(f"IDA Free does not support plugins and cannot be used. Purchase and install IDA Pro instead.")
         sys.exit(1)
+    
     ida_plugin_folder = os.path.join(ida_folder, "plugins")
     plugin_destination = os.path.join(ida_plugin_folder, "mcp-plugin.py")
+
     if uninstall:
         if not os.path.exists(plugin_destination):
             print(f"Skipping IDA plugin uninstall\n  Path: {plugin_destination} (not found)")
@@ -432,34 +439,50 @@ def install_ida_plugin(*, uninstall: bool = False, quiet: bool = False):
         if not quiet:
             print(f"Uninstalled IDA plugin\n  Path: {plugin_destination}")
     else:
-        # Create IDA plugins folder
+        # Tạo thư mục plugins nếu nó không tồn tại
         if not os.path.exists(ida_plugin_folder):
             os.makedirs(ida_plugin_folder)
 
-        # Skip if symlink already up to date
-        realpath = os.path.realpath(plugin_destination)
-        if realpath == IDA_PLUGIN_PY:
-            if not quiet:
-                print(f"Skipping IDA plugin installation (symlink up to date)\n  Plugin: {realpath}")
-        else:
-            # Remove existing plugin
-            if os.path.lexists(plugin_destination):
-                os.remove(plugin_destination)
+        # Xóa plugin cũ (dù là file hay symlink)
+        if os.path.lexists(plugin_destination):
+            os.remove(plugin_destination)
+            
+        # Đọc nội dung file plugin nguồn
+        try:
+            with open(IDA_PLUGIN_PY, "r", encoding="utf-8") as f:
+                code = f.read()
+        except FileNotFoundError:
+            print(f"LỖI: Không tìm thấy file plugin nguồn tại: {IDA_PLUGIN_PY}")
+            return
+        except Exception as e:
+            print(f"LỖI: Không thể đọc file plugin nguồn: {e}")
+            return
 
-            # Symlink or copy the plugin
-            try:
-                os.symlink(IDA_PLUGIN_PY, plugin_destination)
-            except OSError:
-                shutil.copy(IDA_PLUGIN_PY, plugin_destination)
-
+        # Sửa đổi mã nguồn trong bộ nhớ bằng regex
+        replacement_val = "0.0.0.0" if public else "localhost"
+        code = re.sub(r'HOST_EXPOSED = \"[^"]*\"', 
+                      f'HOST_EXPOSED = "{replacement_val}"', 
+                      code)
+        
+        # Ghi trực tiếp nội dung đã sửa đổi vào file đích
+        try:
+            with open(plugin_destination, "w", encoding="utf-8") as f_out:
+                f_out.write(code)
+                
             if not quiet:
                 print(f"Installed IDA Pro plugin (IDA restart required)\n  Plugin: {plugin_destination}")
+        
+        except IOError as e:
+            print(f"LỖI: Không thể ghi file plugin tới: {plugin_destination}")
+            print(f"Chi tiết: {e}")
 
 def main():
     global ida_host, ida_port
     parser = argparse.ArgumentParser(description="IDA Pro MCP Server")
     parser.add_argument("--install", action="store_true", help="Install the MCP Server and IDA plugin")
     parser.add_argument("--uninstall", action="store_true", help="Uninstall the MCP Server and IDA plugin")
+    parser.add_argument("--path", type=str, default="", help="Install or Uninstall the IDA plugin to the specified path")
+    parser.add_argument("--public-transport", action="store_true", default=False, help="Use a public transport (for remote IDA instances)")
     parser.add_argument("--generate-docs", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--install-plugin", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--transport", type=str, default="stdio", help="MCP transport protocol to use (stdio or http://127.0.0.1:8744)")
@@ -473,12 +496,12 @@ def main():
         return
 
     if args.install:
-        install_ida_plugin()
+        install_ida_plugin(uninstall=False, path=args.path)
         install_mcp_servers()
         return
 
     if args.uninstall:
-        install_ida_plugin(uninstall=True)
+        install_ida_plugin(uninstall=True, path=args.path)
         install_mcp_servers(uninstall=True)
         return
 

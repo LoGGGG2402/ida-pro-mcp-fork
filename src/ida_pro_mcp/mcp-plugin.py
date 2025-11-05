@@ -23,6 +23,8 @@ from typing import (
     Literal,
 )
 
+HOST_EXPOSED = "localhost"
+
 class JSONRPCError(Exception):
     def __init__(self, code: int, message: str, data: Any = None):
         self.code = code
@@ -201,7 +203,7 @@ class MCPHTTPServer(http.server.HTTPServer):
     allow_reuse_address = False
 
 class Server:
-    HOST = "localhost"
+    HOST = HOST_EXPOSED
     PORT = 13337
 
     def __init__(self):
@@ -389,19 +391,20 @@ def idaread(f):
 
 def is_window_active():
     """Returns whether IDA is currently active"""
-    try:
-        from PyQt5.QtWidgets import QApplication
-    except ImportError:
-        return False
+    # try:
+    #     from PyQt5.QtWidgets import QApplication
+    # except ImportError:
+    #     return False
 
-    app = QApplication.instance()
-    if app is None:
-        return False
+    # app = QApplication.instance()
+    # if app is None:
+    #     return False
 
-    for widget in app.topLevelWidgets():
-        if widget.isActiveWindow():
-            return True
-    return False
+    # for widget in app.topLevelWidgets():
+    #     if widget.isActiveWindow():
+    #         return True
+    # return False
+    return True
 
 class Metadata(TypedDict):
     path: str
