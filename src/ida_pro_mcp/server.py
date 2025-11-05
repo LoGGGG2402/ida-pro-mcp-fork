@@ -482,7 +482,7 @@ def main():
     parser.add_argument("--install", action="store_true", help="Install the MCP Server and IDA plugin")
     parser.add_argument("--uninstall", action="store_true", help="Uninstall the MCP Server and IDA plugin")
     parser.add_argument("--path", type=str, default="", help="Install or Uninstall the IDA plugin to the specified path")
-    parser.add_argument("--public-transport", action="store_true", default=False, help="Use a public transport (for remote IDA instances)")
+    parser.add_argument("--public", action="store_true", default=False, help="Use a public transport (for remote IDA instances)")
     parser.add_argument("--generate-docs", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--install-plugin", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--transport", type=str, default="stdio", help="MCP transport protocol to use (stdio or http://127.0.0.1:8744)")
@@ -496,7 +496,7 @@ def main():
         return
 
     if args.install:
-        install_ida_plugin(uninstall=False, path=args.path)
+        install_ida_plugin(uninstall=False, path=args.path, public=(args.public != False))
         install_mcp_servers()
         return
 
