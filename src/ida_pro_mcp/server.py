@@ -423,7 +423,7 @@ def install_ida_plugin(*, uninstall: bool = False, path: str = "", public: bool 
         else:
             ida_folder = os.path.join(os.path.expanduser("~"), ".idapro")
     
-    free_licenses = glob.glob(os.path.join(ida_folder, "idafree_*.hexlic"))
+    free_licenses = glob(os.path.join(ida_folder, "idafree_*.hexlic"))
     if len(free_licenses) > 0:
         print(f"IDA Free does not support plugins and cannot be used. Purchase and install IDA Pro instead.")
         sys.exit(1)
